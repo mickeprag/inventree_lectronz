@@ -131,11 +131,19 @@ def create_line_item(
         if not (options := product_part.metadata[LECTRONZ_PRODUCT_TAG].get("options")):
             continue
 
+        choices = {}
         for option in order_item.options:
             if options.get(option.name) not in {option.choice, "lectronzplugin_all"}:
                 break
+            if options.get(option.name) != "lectronzplugin_all":
+                choices[option.name] = option.choice
         else:
-            parts.append(product_part)
+            # All options matched
+            part_reference = (
+                f"{order_item.product_name} | "
+                + ", ".join((f"{name}: {choice}" for name, choice in choices.items()))
+            ).strip()
+            parts.append({"part": product_part, "reference": part_reference})
 
     if not parts:
         sales_order.metadata[LECTRONZ_ORDER_TAG]["sync_errors"].append(
@@ -144,6 +152,8 @@ def create_line_item(
 
     price = order_item.price
     for part in parts:
+        reference = part["reference"]
+        part = part["part"]
         line_item_data = {
             "part": part,
             "sale_price": Money(price, order.currency.value),
